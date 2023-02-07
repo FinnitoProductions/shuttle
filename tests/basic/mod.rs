@@ -14,7 +14,6 @@ mod pct;
 mod portfolio;
 mod replay;
 mod rwlock;
-mod selector;
 mod shrink;
 mod thread;
 mod timeout;

@@ -4,6 +4,7 @@ mod basic;
 mod data;
 mod demo;
 mod future;
+mod crossbeam;
 
 use shuttle::scheduler::{ReplayScheduler, Scheduler};
 use shuttle::{replay_from_file, Config, FailurePersistence, Runner};

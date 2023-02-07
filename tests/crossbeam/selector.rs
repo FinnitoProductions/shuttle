@@ -191,7 +191,7 @@ fn select_mpmc() {
             let r1_clone = r1.clone();
 
             // Create a barrier to enforce that all created threads complete before the test terminates.
-            // This way, any errors caused due to MPMC will be discovered by Shuttle's DFS search.
+            // This way, any errors caused due to MPMC will be discovered by Shuttle's DFS.
             let bar = Arc::new(Barrier::new(4));
             let bar_clone1 = bar.clone();
             let bar_clone2 = bar.clone();
