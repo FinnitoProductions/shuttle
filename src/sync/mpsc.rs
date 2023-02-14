@@ -248,7 +248,7 @@ impl<T> Channel<T> {
         Ok(())
     }
 
-    pub(crate) fn try_send(&self, message: T) -> Result<(), TrySendError<T>> {
+    pub(crate) fn can_send(&self) -> bool {
         let state = self.state.borrow();
         let (is_rendezvous, is_full) = if let Some(bound) = self.bound {
             // For a rendezvous channel (bound = 0), "is_full" holds when there is a message in the channel.
@@ -263,11 +263,11 @@ impl<T> Channel<T> {
         //    the channel is full (as defined above)
         //    there are already waiting senders
         //    this is a rendezvous channel and there are no waiting receivers
-        let sender_should_block =
-            is_full || !state.waiting_senders.is_empty() || (is_rendezvous && state.waiting_receivers.is_empty());
-        drop(state);
+        is_full || !state.waiting_senders.is_empty() || (is_rendezvous && state.waiting_receivers.is_empty())
+    }
 
-        if !sender_should_block {
+    pub(crate) fn try_send(&self, message: T) -> Result<(), TrySendError<T>> {
+        if self.can_send() {
             self.send(message).map_err(|e| TrySendError::Disconnected(e.0))
         } else {
             Err(TrySendError::Full(message))
@@ -388,7 +388,7 @@ impl<T> Channel<T> {
         Ok(value)
     }
 
-    pub(crate) fn try_recv(&self) -> Result<T, TryRecvError> {
+    pub(crate) fn can_recv(&self) -> bool {
         let state = self.state.borrow();
         
         // If this is a rendezvous channel, and the channel is empty, and there are waiting senders,
@@ -403,10 +403,11 @@ impl<T> Channel<T> {
         // The receiver cannot proceed without blocking in any of the following situations:
         //    the channel is empty
         //    there are waiting receivers
-        let should_block = state.messages.is_empty() || !state.waiting_receivers.is_empty();
+       state.messages.is_empty() || !state.waiting_receivers.is_empty()
+    }
 
-        drop(state);
-        if !should_block {
+    pub(crate) fn try_recv(&self) -> Result<T, TryRecvError> {
+        if self.can_recv() {
             self.recv().map_err(|_| TryRecvError::Disconnected)
         } else {
             Err(TryRecvError::Empty)
