@@ -207,7 +207,7 @@ impl<T> Selectable for Receiver<T> {
 
 // Returns a probability that a message will succeed based on the given timeout duration.
 fn timeout_duration_to_success_probability(_: Duration) -> f64 {
-    0. // TODO: mathematical expression such that success probability increases with timeout
+    0.8 // TODO: mathematical expression such that success probability increases with timeout
 }
 
 #[derive(Debug)]
