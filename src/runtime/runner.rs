@@ -4,6 +4,7 @@ use crate::runtime::thread::continuation::{ContinuationPool, CONTINUATION_POOL};
 use crate::scheduler::metrics::MetricsScheduler;
 use crate::scheduler::{Schedule, Scheduler};
 use crate::Config;
+use std::collections::HashMap;
 use std::cell::RefCell;
 use std::fmt;
 use std::panic;
@@ -39,7 +40,16 @@ impl<S: Scheduler + 'static> Runner<S> {
 
     /// Test the given function and return the number of times the function was invoked during the
     /// test (i.e., the number of iterations run).
-    pub fn run<F>(self, f: F) -> usize
+    pub fn run<F>(self, f: F) -> usize 
+    where     
+        F: Fn() + Send + Sync + 'static,
+        {
+        self.run_with_invariants(f, HashMap::new())
+    }
+
+    /// Test the given function and return the number of times the function was invoked during the
+    /// test (i.e., the number of iterations run), asserting a set of invariants at each point.
+    pub fn run_with_invariants<F>(self, f: F, invariants: HashMap<String, &'static (dyn Fn() -> bool + Send + Sync + 'static)>) -> usize
     where
         F: Fn() + Send + Sync + 'static,
     {
@@ -65,13 +75,15 @@ impl<S: Scheduler + 'static> Runner<S> {
                 let execution = Execution::new(self.scheduler.clone(), schedule);
                 let f = Arc::clone(&f);
 
-                span!(Level::INFO, "execution", i).in_scope(|| execution.run(&self.config, move || f()));
+                span!(Level::INFO, "execution", i).in_scope(|| execution.run(&self.config, move || f(), invariants.clone()));
 
                 i += 1;
             }
             i
         })
     }
+
+
 }
 
 /// A `PortfolioRunner` is the same as a `Runner`, except that it can run multiple different

@@ -10,6 +10,7 @@ use scoped_tls::scoped_thread_local;
 use smallvec::SmallVec;
 use std::any::Any;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::future::Future;
 use std::panic;
 use std::rc::Rc;
@@ -49,7 +50,7 @@ impl Execution {
     /// Run a function to be tested, taking control of scheduling it and any tasks it might spawn.
     /// This function runs until `f` and all tasks spawned by `f` have terminated, or until the
     /// scheduler returns `None`, indicating the execution should not be explored any further.
-    pub(crate) fn run<F>(mut self, config: &Config, f: F)
+    pub(crate) fn run<F>(mut self, config: &Config, f: F, invariants: HashMap<String, &'static (dyn Fn() -> bool + Send + Sync + 'static)>)
     where
         F: FnOnce() + Send + 'static,
     {
@@ -57,6 +58,7 @@ impl Execution {
             config.clone(),
             Rc::clone(&self.scheduler),
             self.initial_schedule.clone(),
+            invariants,
         ));
 
         let _guard = init_panic_hook(config.clone());
@@ -199,6 +201,8 @@ pub(crate) struct ExecutionState {
 
     #[cfg(debug_assertions)]
     has_cleaned_up: bool,
+
+    invariants: HashMap<String, &'static (dyn Fn() -> bool + Send + Sync)>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -223,7 +227,8 @@ impl ScheduledTask {
 }
 
 impl ExecutionState {
-    fn new(config: Config, scheduler: Rc<RefCell<dyn Scheduler>>, initial_schedule: Schedule) -> Self {
+    fn new(config: Config, scheduler: Rc<RefCell<dyn Scheduler>>, initial_schedule: Schedule, invariants: HashMap<String, &'static (dyn Fn() -> bool + Send + Sync + 'static)>) -> Self 
+    {
         Self {
             config,
             tasks: SmallVec::new(),
@@ -238,6 +243,7 @@ impl ExecutionState {
             current_span: Span::none(),
             #[cfg(debug_assertions)]
             has_cleaned_up: false,
+            invariants,
         }
     }
 
@@ -355,6 +361,10 @@ impl ExecutionState {
     /// its execution.
     pub(crate) fn maybe_yield() -> bool {
         Self::with(|state| {
+            for (string, inv) in &state.invariants {
+                assert!(inv(), "Invariant failed: {string}");
+            }
+
             debug_assert!(
                 matches!(state.current_task, ScheduledTask::Some(_)) && state.next_task == ScheduledTask::None,
                 "we're inside a task and scheduler should not yet have run"

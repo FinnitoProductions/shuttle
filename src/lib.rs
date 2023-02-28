@@ -192,6 +192,8 @@ pub mod scheduler;
 mod runtime;
 pub mod crossbeam_channel;
 
+use std::collections::HashMap;
+
 pub use runtime::runner::{PortfolioRunner, Runner};
 
 /// Configuration parameters for Shuttle
@@ -303,11 +305,19 @@ pub fn check_random<F>(f: F, iterations: usize)
 where
     F: Fn() + Send + Sync + 'static,
 {
+    check_random_with_invariants(f, iterations, HashMap::new())
+}
+
+/// Run the given function under a randomized concurrency scheduler, but check a series of invariants at every yield point.
+pub fn check_random_with_invariants<F>(f: F, iterations: usize, invariants: HashMap<String, &'static (dyn Fn() -> bool + Send + Sync + 'static)>) 
+where
+    F: Fn() + Send + Sync + 'static,
+{
     use crate::scheduler::RandomScheduler;
 
     let scheduler = RandomScheduler::new(iterations);
     let runner = Runner::new(scheduler, Default::default());
-    runner.run(f);
+    runner.run_with_invariants(f, invariants);
 }
 
 /// Run the given function under a PCT concurrency scheduler for some number of iterations at the
