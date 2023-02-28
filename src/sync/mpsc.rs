@@ -263,7 +263,7 @@ impl<T> Channel<T> {
         //    the channel is full (as defined above)
         //    there are already waiting senders
         //    this is a rendezvous channel and there are no waiting receivers
-        is_full || !state.waiting_senders.is_empty() || (is_rendezvous && state.waiting_receivers.is_empty())
+        !is_full && state.waiting_senders.is_empty() && !(is_rendezvous && state.waiting_receivers.is_empty())
     }
 
     pub(crate) fn try_send(&self, message: T) -> Result<(), TrySendError<T>> {
@@ -403,7 +403,7 @@ impl<T> Channel<T> {
         // The receiver cannot proceed without blocking in any of the following situations:
         //    the channel is empty
         //    there are waiting receivers
-       state.messages.is_empty() || !state.waiting_receivers.is_empty()
+       !state.messages.is_empty() && state.waiting_receivers.is_empty()
     }
 
     pub(crate) fn try_recv(&self) -> Result<T, TryRecvError> {

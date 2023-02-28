@@ -233,10 +233,10 @@ impl<T> Sender<T> {
 
     /// Attempts to send a value on this channel, returning it back if it could
     /// not be sent.
-    pub fn send_timeout(&self, t: T, d: Duration) -> Result<(), SendTimeoutError<T>> {
+    pub fn send_timeout(&self, t: T, _: Duration) -> Result<(), SendTimeoutError<T>> {
         let mut rng = rand::thread_rng();
         if self.inner.can_send() {
-            if rng.gen::<f64>() < timeout_duration_to_success_probability(d) {
+            if rng.gen::<f64>() < 1.0 { // timeout_duration_to_success_probability(d) {
                 self.send(t).map_err(|e| SendTimeoutError::Timeout(e.0))
             } else {
                 Err(SendTimeoutError::Timeout(t))
